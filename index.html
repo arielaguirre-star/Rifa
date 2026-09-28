@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorteo Mágico - Bolillero Virtual</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            purple: '#7c3aed',
+                            pink: '#ec4899',
+                            yellow: '#f59e0b',
+                            cyan: '#06b6d4',
+                            dark: '#0f172a'
+                        }
+                    },
+                    animation: {
+                        'spin-slow': 'spin 12s linear infinite',
+                        'bounce-fast': 'bounce 0.4s infinite alternate',
+                        'pulse-glow': 'pulseGlow 2s infinite alternate',
+                    },
+                    keyframes: {
+                        pulseGlow: {
+                            '0%': { boxShadow: '0 0 15px rgba(236,72,153,0.4), 0 0 30px rgba(124,58,237,0.3)' },
+                            '100%': { boxShadow: '0 0 30px rgba(236,72,153,0.8), 0 0 60px rgba(124,58,237,0.6)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background: radial-gradient(circle at top left, #1e1b4b, #0f172a, #311042);
+            min-height: 100vh;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        /* Cristalismo / Glassmorphism */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .glass-modal {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Esfera 3D / Contenedor del bolillero */
+        .cage-sphere {
+            position: relative;
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.25), rgba(255,255,255,0.05) 60%, rgba(0,0,0,0.5));
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            box-shadow: inset 0 0 30px rgba(255,255,255,0.2), 0 20px 50px rgba(0,0,0,0.6);
+            overflow: hidden;
+        }
+
+        .cage-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px dashed rgba(255, 255, 255, 0.25);
+            pointer-events: none;
+        }
+
+        /* Bolillas dentro del bolillero */
+        .bouncing-ball {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 12px;
+            color: #000;
+            box-shadow: inset -2px -2px 6px rgba(0,0,0,0.4), inset 2px 2px 6px rgba(255,255,255,0.8), 0 4px 8px rgba(0,0,0,0.3);
+            transition: transform 0.05s ease-out;
+        }
+
+        /* Estilos de Bolillas Extraídas */
+        .extracted-ball {
+            background: radial-gradient(circle at 35% 35%, #fff 0%, #ec4899 50%, #831843 100%);
+            color: #ffffff;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+            box-shadow: inset -3px -3px 8px rgba(0,0,0,0.5), inset 3px 3px 8px rgba(255,255,255,0.8), 0 8px 16px rgba(236,72,153,0.4);
+        }
+
+        /* Brillo de Texto Neón */
+        .neon-text {
+            text-shadow: 0 0 10px rgba(236, 72, 153, 0.7), 0 0 20px rgba(124, 58, 237, 0.5);
+        }
+
+        /* Animación para salida de la bolilla ganadora */
+        @keyframes revealBall {
+            0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+            70% { transform: scale(1.2) rotate(10deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        .animate-reveal {
+            animation: revealBall 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        /* Personalización de Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(236, 72, 153, 0.5);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(236, 72, 153, 0.8);
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen justify-between items-center p-4 md:p-8 select-none">
+
+    <!-- Navbar / Header -->
+    <header class="w-full max-w-5xl flex justify-between items-center py-4 px-6 glass-card rounded-2xl mb-6">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-pink to-brand-purple flex items-center justify-center shadow-lg">
+                <i class="fa-solid fa-dice-d20 text-white text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl md:text-2xl font-black bg-gradient-to-r from-pink-400 via-purple-300 to-cyan-400 bg-clip-text text-transparent">
+                    BOLILLERO MÁGICO
+                </h1>
+                <p class="text-xs text-slate-400">Sistema Premium de Sorteos</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <!-- Botón Mutear Sonido -->
+            <button id="muteBtn" class="w-10 h-10 rounded-xl glass-card flex items-center justify-center hover:bg-white/10 transition-all text-slate-300 hover:text-white" title="Activar/Desactivar Sonido">
+                <i class="fa-solid fa-volume-high text-lg" id="muteIcon"></i>
+            </button>
+            
+            <!-- Botón Configuración (Abre Modal Secreto/Ajustes) -->
+            <button id="openConfigBtn" class="w-10 h-10 rounded-xl glass-card flex items-center justify-center hover:bg-white/10 transition-all text-pink-400 hover:text-pink-300" title="Configuración del Sorteo">
+                <i class="fa-solid fa-gear text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="w-full max-w-5xl flex flex-col lg:flex-row items-center justify-center gap-8 my-auto py-4">
+
+        <!-- LADO IZQUIERDO: Bolillero Animado -->
+        <div class="flex flex-col items-center justify-center w-full lg:w-1/2">
+            
+            <!-- Base / Estructura del Bolillero -->
+            <div class="relative flex flex-col items-center">
+                <!-- Soporte Superior -->
+                <div class="w-32 h-4 bg-gradient-to-r from-slate-700 via-slate-500 to-slate-700 rounded-t-lg shadow-md"></div>
+                
+                <!-- Esfera Giratoria -->
+                <div id="cageSphere" class="cage-sphere flex items-center justify-center my-[-2px]">
+                    <div id="cageRing" class="cage-ring"></div>
+                    <!-- Bolillas dinámicas dentro mediante JS -->
+                    <div id="ballsContainer" class="absolute inset-0"></div>
+                </div>
+
+                <!-- Manivela/Soporte Inferior -->
+                <div class="w-48 h-6 bg-gradient-to-r from-slate-800 via-slate-600 to-slate-800 rounded-b-xl shadow-2xl flex justify-center items-center">
+                    <div class="w-12 h-2 bg-slate-900 rounded-full"></div>
+                </div>
+                <div class="w-64 h-3 bg-black/40 blur-md rounded-full mt-2"></div>
+            </div>
+
+            <!-- Botón Principal de Giro -->
+            <button id="spinBtn" class="mt-8 px-10 py-4 rounded-2xl bg-gradient-to-r from-brand-pink via-purple-600 to-brand-cyan text-white font-black text-xl md:text-2xl tracking-wider uppercase shadow-2xl animate-pulse-glow hover:scale-105 active:scale-95 transition-all duration-300 flex items-center space-x-3 cursor-pointer border border-white/20">
+                <i class="fa-solid fa-rotate text-2xl" id="spinIcon"></i>
+                <span>¡Girar Bolillero!</span>
+            </button>
+        </div>
+
+        <!-- LADO DERECHO: Resultado Actual e Historial -->
+        <div class="w-full lg:w-1/2 flex flex-col items-center gap-6">
+            
+            <!-- Target de Resultado -->
+            <div class="w-full glass-card rounded-3xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[220px]">
+                <div class="absolute -right-10 -top-10 w-32 h-32 bg-brand-pink/20 rounded-full blur-2xl"></div>
+                <div class="absolute -left-10 -bottom-10 w-32 h-32 bg-brand-cyan/20 rounded-full blur-2xl"></div>
+
+                <span class="text-xs uppercase tracking-widest font-semibold text-slate-400 mb-2">
+                    Número Extraído
+                </span>
+
+                <!-- Display de Resultado -->
+                <div id="resultDisplay" class="flex items-center justify-center min-h-[120px]">
+                    <p id="placeholderText" class="text-slate-500 font-medium italic text-sm">
+                        Haz clic en "Girar Bolillero" para comenzar el sorteo...
+                    </p>
+                    
+                    <!-- Bolilla Ganadora (Oculta al inicio) -->
+                    <div id="winnerBall" class="hidden extracted-ball w-28 h-28 md:w-32 md:h-32 rounded-full flex items-center justify-center text-4xl md:text-5xl font-black border-4 border-white/40 shadow-2xl">
+                        <span id="winnerNumber">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historial de Números -->
+            <div class="w-full glass-card rounded-3xl p-5 flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-xs uppercase tracking-wider font-bold text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-brand-pink"></i> Historial de la Sesión
+                    </span>
+                    <button id="clearHistoryBtn" class="text-xs text-slate-400 hover:text-pink-400 transition-colors">
+                        Limpiar
+                    </button>
+                </div>
+
+                <div id="historyContainer" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1 min-h-[50px] items-center">
+                    <span id="emptyHistoryText" class="text-xs text-slate-500 italic">No hay números sorteados aún.</span>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Modal de Configuración Secreta -->
+    <div id="configModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md hidden transition-all duration-300 opacity-0">
+        <div class="glass-modal w-full max-w-md rounded-3xl p-6 shadow-2xl relative border border-white/20 transform scale-95 transition-transform duration-300" id="modalCard">
+            
+            <div class="flex justify-between items-center border-b border-white/10 pb-4 mb-4">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-sliders text-brand-pink text-xl"></i>
+                    <h2 class="text-lg font-bold text-white">Panel de Control / Preconfiguración</h2>
+                </div>
+                <button id="closeConfigBtn" class="text-slate-400 hover:text-white text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Input de Número Preconfigurado -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                        Número(s) Forzado(s) Próximo Sorteo:
+                    </label>
+                    <input type="text" id="targetNumberInput" placeholder="Ej: 42 o secuencia 7, 15, 88" 
+                           class="w-full px-4 py-3 rounded-xl bg-slate-900/80 border border-slate-700 text-pink-400 font-bold placeholder-slate-600 focus:outline-none focus:border-brand-pink transition-all">
+                    <p class="text-[11px] text-slate-400 mt-1">
+                        * Ingrese un número fijo o una secuencia separada por comas. Si se deja en blanco, el resultado será 100% aleatorio.
+                    </p>
+                </div>
+
+                <!-- Rango de Bolillas Si es aleatorio -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Mínimo Rango:</label>
+                        <input type="number" id="minRangeInput" value="1" min="0" 
+                               class="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700 text-white font-medium focus:outline-none focus:border-brand-pink">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Máximo Rango:</label>
+                        <input type="number" id="maxRangeInput" value="99" min="1" 
+                               class="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700 text-white font-medium focus:outline-none focus:border-brand-pink">
+                    </div>
+                </div>
+
+                <!-- Duración de la animación -->
+                <div>
+                    <div class="flex justify-between text-xs font-semibold text-slate-300 mb-1">
+                        <span>Duración del Giro:</span>
+                        <span id="durationValue" class="text-brand-cyan">4 Segundos</span>
+                    </div>
+                    <input type="range" id="durationSlider" min="2" max="10" value="4" step="1" 
+                           class="w-full accent-brand-pink bg-slate-800 rounded-lg cursor-pointer">
+                </div>
+
+                <!-- Opciones Extra -->
+                <div class="flex items-center justify-between pt-2">
+                    <span class="text-xs font-semibold text-slate-300">Modo Repetición de Números:</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="allowDuplicatesToggle" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-pink"></div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Botones del Modal -->
+            <div class="mt-6 flex space-x-3">
+                <button id="saveConfigBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-brand-pink to-brand-purple text-white font-bold text-sm hover:opacity-90 transition-all shadow-lg">
+                    Guardar Configuración
+                </button>
+            </div>
+
+            <div class="mt-3 text-center">
+                <span class="text-[10px] text-slate-500">Atajo teclado: presiona <kbd class="px-1 bg-slate-800 rounded border border-slate-700 text-slate-300">Ctrl + Shift + K</kbd> para abrir/cerrar.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="w-full max-w-5xl text-center py-4 text-xs text-slate-500 flex flex-col md:flex-row justify-between items-center gap-2 border-t border-white/5 mt-6">
+        <p>© 2026 Sorteo Mágico. Diseñado para desplegar en GitHub Pages.</p>
+        <p class="flex items-center gap-1">
+            <span>Desarrollado con</span>
+            <i class="fa-solid fa-heart text-pink-500"></i>
+            <span>HTML5 & Tailwind CSS</span>
+        </p>
+    </footer>
+
+    <script>
+        // --- ESTADO DE LA APLICACIÓN ---
+        const state = {
+            isSpinning: false,
+            forcedSequence: [], // Cola de números forzados
+            minRange: 1,
+            maxRange: 99,
+            duration: 4, // segundos
+            allowDuplicates: true,
+            history: [],
+            soundEnabled: true,
+            ballsCount: 18 // Cantidad de bolillas visuales dentro del bolillero
+        };
+
+        // --- WEB AUDIO API (EFECTOS DE SONIDO SINTETIZADOS) ---
+        class SoundEffects {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+            }
+
+            // Sonido de bolilla chocando
+            playClick() {
+                if (!state.soundEnabled) return;
+                this.init();
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300 + Math.random() * 400, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.05);
+
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.05);
+            }
+
+            // Fanfarria / Redoble de Victoria
+            playWin() {
+                if (!state.soundEnabled) return;
+                this.init();
+
+                const now = this.ctx.currentTime;
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+
+                notes.forEach((freq, index) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + index * 0.1);
+
+                    gain.gain.setValueAtTime(0.2, now + index * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + index * 0.1 + 0.3);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(now + index * 0.1);
+                    osc.stop(now + index * 0.1 + 0.3);
+                });
+            }
+        }
+
+        const sounds = new SoundEffects();
+
+        // --- ELEMENTOS DEL DOM ---
+        const spinBtn = document.getElementById('spinBtn');
+        const spinIcon = document.getElementById('spinIcon');
+        const cageSphere = document.getElementById('cageSphere');
+        const cageRing = document.getElementById('cageRing');
+        const ballsContainer = document.getElementById('ballsContainer');
+        const winnerBall = document.getElementById('winnerBall');
+        const winnerNumber = document.getElementById('winnerNumber');
+        const placeholderText = document.getElementById('placeholderText');
+        const historyContainer = document.getElementById('historyContainer');
+        const emptyHistoryText = document.getElementById('emptyHistoryText');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        
+        // Modal & Config
+        const configModal = document.getElementById('configModal');
+        const modalCard = document.getElementById('modalCard');
+        const openConfigBtn = document.getElementById('openConfigBtn');
+        const closeConfigBtn = document.getElementById('closeConfigBtn');
+        const saveConfigBtn = document.getElementById('saveConfigBtn');
+        const targetNumberInput = document.getElementById('targetNumberInput');
+        const minRangeInput = document.getElementById('minRangeInput');
+        const maxRangeInput = document.getElementById('maxRangeInput');
+        const durationSlider = document.getElementById('durationSlider');
+        const durationValue = document.getElementById('durationValue');
+        const allowDuplicatesToggle = document.getElementById('allowDuplicatesToggle');
+        const muteBtn = document.getElementById('muteBtn');
+        const muteIcon = document.getElementById('muteIcon');
+
+        // --- INICIALIZACIÓN DE BOLILLAS VISUALES (EFECTO FISICA EN CANASTA) ---
+        let internalBalls = [];
+
+        function initVisualBalls() {
+            ballsContainer.innerHTML = '';
+            internalBalls = [];
+            
+            const colors = [
+                'radial-gradient(circle at 35% 35%, #fff, #f43f5e)',
+                'radial-gradient(circle at 35% 35%, #fff, #3b82f6)',
+                'radial-gradient(circle at 35% 35%, #fff, #10b981)',
+                'radial-gradient(circle at 35% 35%, #fff, #f59e0b)',
+                'radial-gradient(circle at 35% 35%, #fff, #8b5cf6)',
+                'radial-gradient(circle at 35% 35%, #fff, #ec4899)'
+            ];
+
+            for (let i = 0; i < state.ballsCount; i++) {
+                const ball = document.createElement('div');
+                ball.className = 'bouncing-ball';
+                ball.innerText = Math.floor(Math.random() * 90) + 10;
+                ball.style.background = colors[i % colors.length];
+
+                // Posición inicial aleatoria dentro del círculo
+                const angle = Math.random() * Math.PI * 2;
+                const radius = Math.random() * 80;
+                const x = 130 + radius * Math.cos(angle) - 16;
+                const y = 130 + radius * Math.sin(angle) - 16;
+
+                ball.style.left = `${x}px`;
+                ball.style.top = `${y}px`;
+
+                ballsContainer.appendChild(ball);
+
+                internalBalls.push({
+                    element: ball,
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4
+                });
+            }
+        }
+
+        // Simulación continua de movimiento suave
+        let animationFrameId = null;
+
+        function updatePhysics(speedMultiplier = 1) {
+            const centerX = 130 - 16;
+            const centerY = 130 - 16;
+            const maxRadius = 95;
+
+            internalBalls.forEach(ball => {
+                ball.x += ball.vx * speedMultiplier;
+                ball.y += ball.vy * speedMultiplier;
+
+                // Mantener dentro del límite circular
+                const dx = ball.x - centerX;
+                const dy = ball.y - centerY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist > maxRadius) {
+                    const angle = Math.atan2(dy, dx);
+                    ball.x = centerX + Math.cos(angle) * maxRadius;
+                    ball.y = centerY + Math.sin(angle) * maxRadius;
+                    ball.vx = -ball.vx * 0.8 + (Math.random() - 0.5) * 2;
+                    ball.vy = -ball.vy * 0.8 + (Math.random() - 0.5) * 2;
+
+                    if (speedMultiplier > 2 && Math.random() < 0.2) {
+                        sounds.playClick();
+                    }
+                }
+
+                // Aplicar fricción/gravedad tenue
+                ball.vy += 0.1 * speedMultiplier;
+
+                ball.element.style.transform = `translate(${ball.x - centerX}px, ${ball.y - centerY}px)`;
+            });
+
+            animationFrameId = requestAnimationFrame(() => updatePhysics(state.isSpinning ? 4 : 0.5));
+        }
+
+        // --- LÓGICA PRINCIPAL DEL SORTEO ---
+
+        function startSpin() {
+            if (state.isSpinning) return;
+
+            state.isSpinning = true;
+            spinBtn.disabled = true;
+            spinBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            spinIcon.classList.add('animate-spin');
+
+            // Ocultar número anterior si existía
+            winnerBall.classList.add('hidden');
+            winnerBall.classList.remove('animate-reveal');
+            placeholderText.classList.remove('hidden');
+            placeholderText.innerText = "Mezclando bolillas...";
+
+            // Girar contenedor CSS
+            cageRing.classList.add('animate-spin');
+
+            // Determinar Número Ganador
+            const finalNumber = getNextNumber();
+
+            // Tiempo de simulación
+            const spinDurationMs = state.duration * 1000;
+
+            setTimeout(() => {
+                stopSpin(finalNumber);
+            }, spinDurationMs);
+        }
+
+        function stopSpin(resultNumber) {
+            state.isSpinning = false;
+            spinBtn.disabled = false;
+            spinBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+            spinIcon.classList.remove('animate-spin');
+            cageRing.classList.remove('animate-spin');
+
+            // Mostrar Resultado
+            placeholderText.classList.add('hidden');
+            winnerNumber.innerText = resultNumber < 10 ? `0${resultNumber}` : resultNumber;
+            winnerBall.classList.remove('hidden');
+            winnerBall.classList.add('animate-reveal');
+
+            // Sonido y Confeti
+            sounds.playWin();
+            triggerConfetti();
+
+            // Registrar en historial
+            addHistoryItem(resultNumber);
+        }
+
+        function getNextNumber() {
+            // 1. Verificar si hay un número preconfigurado en cola
+            if (state.forcedSequence.length > 0) {
+                return state.forcedSequence.shift(); // Extrae el primero de la lista
+            }
+
+            // 2. Si no hay preconfigurado, generar aleatorio según rango
+            let valid = false;
+            let candidate = null;
+            let attempts = 0;
+
+            while (!valid && attempts < 500) {
+                candidate = Math.floor(Math.random() * (state.maxRange - state.minRange + 1)) + state.minRange;
+                if (state.allowDuplicates || !state.history.includes(candidate)) {
+                    valid = true;
+                }
+                attempts++;
+            }
+
+            return candidate || state.minRange;
+        }
+
+        // Confetti visual
+        function triggerConfetti() {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 80,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#ec4899', '#7c3aed', '#06b6d4', '#f59e0b']
+                });
+            }
+        }
+
+        // Historial
+        function addHistoryItem(number) {
+            state.history.unshift(number);
+            emptyHistoryText.classList.add('hidden');
+
+            const item = document.createElement('div');
+            item.className = 'w-9 h-9 rounded-full bg-gradient-to-tr from-brand-pink to-brand-purple text-white font-bold flex items-center justify-center text-xs shadow-md transform hover:scale-110 transition-transform cursor-default';
+            item.innerText = number < 10 ? `0${number}` : number;
+
+            historyContainer.insertBefore(item, historyContainer.firstChild);
+        }
+
+        function clearHistory() {
+            state.history = [];
+            historyContainer.innerHTML = '';
+            historyContainer.appendChild(emptyHistoryText);
+            emptyHistoryText.classList.remove('hidden');
+        }
+
+        // --- GESTIÓN DEL MODAL Y CONFIGURACIÓN ---
+
+        function openModal() {
+            configModal.classList.remove('hidden');
+            setTimeout(() => {
+                configModal.classList.remove('opacity-0');
+                modalCard.classList.remove('scale-95');
+                modalCard.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            configModal.classList.add('opacity-0');
+            modalCard.classList.remove('scale-100');
+            modalCard.classList.add('scale-95');
+            setTimeout(() => {
+                configModal.classList.add('hidden');
+            }, 300);
+        }
+
+        function saveConfiguration() {
+            // Procesar input de números preconfigurados
+            const rawVal = targetNumberInput.value.trim();
+            if (rawVal !== '') {
+                const parsed = rawVal.split(',')
+                    .map(n => parseInt(n.trim()))
+                    .filter(n => !isNaN(n));
+                
+                state.forcedSequence = parsed;
+            } else {
+                state.forcedSequence = [];
+            }
+
+            state.minRange = parseInt(minRangeInput.value) || 1;
+            state.maxRange = parseInt(maxRangeInput.value) || 99;
+            state.duration = parseInt(durationSlider.value) || 4;
+            state.allowDuplicates = allowDuplicatesToggle.checked;
+
+            closeModal();
+        }
+
+        // --- EVENT LISTENERS ---
+
+        spinBtn.addEventListener('click', startSpin);
+
+        openConfigBtn.addEventListener('click', openModal);
+        closeConfigBtn.addEventListener('click', closeModal);
+        saveConfigBtn.addEventListener('click', saveConfiguration);
+
+        clearHistoryBtn.addEventListener('click', clearHistory);
+
+        // Click fuera del modal para cerrar
+        configModal.addEventListener('click', (e) => {
+            if (e.target === configModal) closeModal();
+        });
+
+        // Slider de Duración
+        durationSlider.addEventListener('input', (e) => {
+            durationValue.innerText = `${e.target.value} Segundos`;
+        });
+
+        // Atajo Secreto de Teclado (Ctrl + Shift + K)
+        window.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && (e.key === 'K' || e.key === 'k')) {
+                e.preventDefault();
+                if (configModal.classList.contains('hidden')) {
+                    openModal();
+                } else {
+                    closeModal();
+                }
+            }
+        });
+
+        // Toggle Sonido
+        muteBtn.addEventListener('click', () => {
+            state.soundEnabled = !state.soundEnabled;
+            if (state.soundEnabled) {
+                muteIcon.className = 'fa-solid fa-volume-high text-lg';
+                muteBtn.classList.remove('text-red-400');
+            } else {
+                muteIcon.className = 'fa-solid fa-volume-xmark text-lg';
+                muteBtn.classList.add('text-red-400');
+            }
+        });
+
+        // Inicialización al Cargar
+        window.onload = function() {
+            initVisualBalls();
+            updatePhysics();
+        };
+
+    </script>
+</body>
+</html>
