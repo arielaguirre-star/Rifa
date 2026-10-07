@@ -3,724 +3,947 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sorteo Mágico - Bolillero Virtual</title>
-    
-    <!-- Tailwind CSS CDN -->
+    <title>Bolillero Mágico 3D Realista - Sorteo de Rifa</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Canvas Confetti CDN -->
+    <!-- Canvas Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls for 3D navigation -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Outfit', 'sans-serif'],
-                    },
-                    colors: {
-                        brand: {
-                            purple: '#7c3aed',
-                            pink: '#ec4899',
-                            yellow: '#f59e0b',
-                            cyan: '#06b6d4',
-                            dark: '#0f172a'
-                        }
-                    },
-                    animation: {
-                        'spin-slow': 'spin 12s linear infinite',
-                        'bounce-fast': 'bounce 0.4s infinite alternate',
-                        'pulse-glow': 'pulseGlow 2s infinite alternate',
-                    },
-                    keyframes: {
-                        pulseGlow: {
-                            '0%': { boxShadow: '0 0 15px rgba(236,72,153,0.4), 0 0 30px rgba(124,58,237,0.3)' },
-                            '100%': { boxShadow: '0 0 30px rgba(236,72,153,0.8), 0 0 60px rgba(124,58,237,0.6)' },
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
 
     <style>
+        :root {
+            --bg-dark: #050811;
+            --accent-purple: #8b5cf6;
+            --accent-cyan: #06b6d4;
+            --accent-gold: #f59e0b;
+        }
+
         body {
-            background: radial-gradient(circle at top left, #1e1b4b, #0f172a, #311042);
-            min-height: 100vh;
-            color: #f8fafc;
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-dark);
+            color: #f3f4f6;
             overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(139, 92, 246, 0.18) 0%, transparent 45%),
+                radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.18) 0%, transparent 45%),
+                radial-gradient(circle at 50% 50%, rgba(245, 158, 11, 0.08) 0%, transparent 65%);
         }
 
-        /* Cristalismo / Glassmorphism */
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
         .glass-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-        }
-
-        .glass-modal {
-            background: rgba(15, 23, 42, 0.85);
+            background: rgba(13, 19, 35, 0.78);
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 12px 35px -5px rgba(0, 0, 0, 0.6);
         }
 
-        /* Esfera 3D / Contenedor del bolillero */
-        .cage-sphere {
-            position: relative;
-            width: 260px;
-            height: 260px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.25), rgba(255,255,255,0.05) 60%, rgba(0,0,0,0.5));
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            box-shadow: inset 0 0 30px rgba(255,255,255,0.2), 0 20px 50px rgba(0,0,0,0.6);
-            overflow: hidden;
+        .glass-glow-gold {
+            box-shadow: 0 0 40px rgba(245, 158, 11, 0.25), inset 0 0 20px rgba(245, 158, 11, 0.1);
         }
 
-        .cage-ring {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+        /* 3D Canvas Containers */
+        #canvas3dContainer {
             width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            border: 2px dashed rgba(255, 255, 255, 0.25);
-            pointer-events: none;
+            height: 380px;
+            position: relative;
+            cursor: grab;
         }
 
-        /* Bolillas dentro del bolillero */
-        .bouncing-ball {
-            position: absolute;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 12px;
-            color: #000;
-            box-shadow: inset -2px -2px 6px rgba(0,0,0,0.4), inset 2px 2px 6px rgba(255,255,255,0.8), 0 4px 8px rgba(0,0,0,0.3);
-            transition: transform 0.05s ease-out;
+        #canvas3dContainer:active {
+            cursor: grabbing;
         }
 
-        /* Estilos de Bolillas Extraídas */
-        .extracted-ball {
-            background: radial-gradient(circle at 35% 35%, #fff 0%, #ec4899 50%, #831843 100%);
-            color: #ffffff;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-            box-shadow: inset -3px -3px 8px rgba(0,0,0,0.5), inset 3px 3px 8px rgba(255,255,255,0.8), 0 8px 16px rgba(236,72,153,0.4);
+        #winnerCanvasContainer {
+            width: 160px;
+            height: 160px;
+            position: relative;
         }
 
-        /* Brillo de Texto Neón */
-        .neon-text {
-            text-shadow: 0 0 10px rgba(236, 72, 153, 0.7), 0 0 20px rgba(124, 58, 237, 0.5);
+        @media (min-width: 640px) {
+            #canvas3dContainer {
+                height: 440px;
+            }
         }
 
-        /* Animación para salida de la bolilla ganadora */
-        @keyframes revealBall {
+        .winner-ball-wrapper {
+            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .winner-ball-wrapper.pop-in {
+            animation: popInWinner 0.8s ease forwards;
+        }
+
+        @keyframes popInWinner {
             0% { transform: scale(0) rotate(-180deg); opacity: 0; }
-            70% { transform: scale(1.2) rotate(10deg); opacity: 1; }
+            70% { transform: scale(1.15) rotate(10deg); opacity: 1; }
             100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
 
-        .animate-reveal {
-            animation: revealBall 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
-
-        /* Personalización de Scrollbar */
+        /* Custom Scrollbars */
         ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+            width: 6px;
         }
         ::-webkit-scrollbar-track {
             background: rgba(15, 23, 42, 0.6);
         }
         ::-webkit-scrollbar-thumb {
-            background: rgba(236, 72, 153, 0.5);
-            border-radius: 4px;
+            background: rgba(139, 92, 246, 0.5);
+            border-radius: 3px;
         }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(236, 72, 153, 0.8);
-        }
+
+        .ball-badge-1 { background: linear-gradient(135deg, #ef4444, #991b1b); }
+        .ball-badge-2 { background: linear-gradient(135deg, #3b82f6, #1e40af); }
+        .ball-badge-3 { background: linear-gradient(135deg, #10b981, #065f46); }
+        .ball-badge-4 { background: linear-gradient(135deg, #f59e0b, #92400e); }
+        .ball-badge-5 { background: linear-gradient(135deg, #8b5cf6, #5b21b6); }
+        .ball-badge-6 { background: linear-gradient(135deg, #ec4899, #9d174d); }
     </style>
 </head>
-<body class="flex flex-col min-h-screen justify-between items-center p-4 md:p-8 select-none">
+<body class="min-h-screen flex flex-col justify-between text-gray-100 p-3 sm:p-6">
 
-    <!-- Navbar / Header -->
-    <header class="w-full max-w-5xl flex justify-between items-center py-4 px-6 glass-card rounded-2xl mb-6">
-        <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-pink to-brand-purple flex items-center justify-center shadow-lg">
-                <i class="fa-solid fa-dice-d20 text-white text-xl"></i>
+    <header class="max-w-7xl mx-auto w-full flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 glass-card p-4 rounded-2xl">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-purple-600 via-pink-500 to-amber-400 flex items-center justify-center text-white shadow-lg text-2xl">
+                <i class="fa-solid fa-cubes"></i>
             </div>
             <div>
-                <h1 class="text-xl md:text-2xl font-black bg-gradient-to-r from-pink-400 via-purple-300 to-cyan-400 bg-clip-text text-transparent">
-                    BOLILLERO MÁGICO
+                <h1 class="text-2xl sm:text-3xl font-extrabold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-amber-300 font-orbitron">
+                    BOLILLERO MÁGICO 3D
                 </h1>
-                <p class="text-xs text-slate-400">Sistema Premium de Sorteos</p>
+                <p class="text-xs text-gray-400">Sonido de Chocado Realista & Rotación Continua de Bolilla Ganadora</p>
             </div>
         </div>
 
-        <div class="flex items-center space-x-3">
-            <!-- Botón Mutear Sonido -->
-            <button id="muteBtn" class="w-10 h-10 rounded-xl glass-card flex items-center justify-center hover:bg-white/10 transition-all text-slate-300 hover:text-white" title="Activar/Desactivar Sonido">
-                <i class="fa-solid fa-volume-high text-lg" id="muteIcon"></i>
+        <div class="flex items-center gap-2 sm:gap-3 flex-wrap justify-center">
+            <button id="soundToggleBtn" onclick="toggleSound()" class="px-3.5 py-2.5 rounded-xl glass-card hover:bg-white/10 text-xs font-semibold flex items-center gap-2 transition duration-200">
+                <i id="soundIcon" class="fa-solid fa-volume-high text-purple-400"></i>
+                <span id="soundText">Sonido: ON</span>
             </button>
-            
-            <!-- Botón Configuración (Abre Modal Secreto/Ajustes) -->
-            <button id="openConfigBtn" class="w-10 h-10 rounded-xl glass-card flex items-center justify-center hover:bg-white/10 transition-all text-pink-400 hover:text-pink-300" title="Configuración del Sorteo">
-                <i class="fa-solid fa-gear text-lg"></i>
+
+            <button onclick="toggleFullscreen()" class="px-3.5 py-2.5 rounded-xl glass-card hover:bg-white/10 text-xs font-semibold flex items-center gap-2 transition duration-200">
+                <i class="fa-solid fa-expand text-cyan-400"></i>
+                <span>Pantalla Completa</span>
+            </button>
+
+            <!-- EXCLUSIVE CONFIGURATION BUTTON -->
+            <button onclick="openConfigModal()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs tracking-wider uppercase shadow-lg flex items-center gap-2 transition duration-200 transform hover:scale-105" title="Atajo: Ctrl + Shift + K">
+                <i class="fa-solid fa-gear text-amber-300"></i>
+                <span>CONFIGURAR</span>
             </button>
         </div>
     </header>
 
-    <!-- Main Content Container -->
-    <main class="w-full max-w-5xl flex flex-col lg:flex-row items-center justify-center gap-8 my-auto py-4">
+    <main class="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start my-auto">
+        
+        <!-- Left Stats Panel -->
+        <section class="lg:col-span-3 glass-card p-5 rounded-3xl flex flex-col gap-4">
+            <h2 class="text-sm font-bold text-purple-300 flex items-center gap-2 font-orbitron border-b border-gray-700/60 pb-3">
+                <i class="fa-solid fa-chart-pie text-cyan-400"></i> Estado del Sorteo
+            </h2>
 
-        <!-- LADO IZQUIERDO: Bolillero Animado -->
-        <div class="flex flex-col items-center justify-center w-full lg:w-1/2">
-            
-            <!-- Base / Estructura del Bolillero -->
-            <div class="relative flex flex-col items-center">
-                <!-- Soporte Superior -->
-                <div class="w-32 h-4 bg-gradient-to-r from-slate-700 via-slate-500 to-slate-700 rounded-t-lg shadow-md"></div>
+            <div class="space-y-3">
+                <div class="p-3.5 rounded-2xl bg-gray-900/60 border border-gray-800 flex justify-between items-center">
+                    <div>
+                        <p class="text-[10px] text-gray-400 uppercase font-semibold">Rango Activo</p>
+                        <p id="rangeBadge" class="text-lg font-bold text-cyan-400 font-orbitron">1 - 100</p>
+                    </div>
+                    <i class="fa-solid fa-list-ol text-cyan-400/50 text-xl"></i>
+                </div>
+
+                <div class="p-3.5 rounded-2xl bg-gray-900/60 border border-gray-800 flex justify-between items-center">
+                    <div>
+                        <p class="text-[10px] text-gray-400 uppercase font-semibold">Extraídos</p>
+                        <p id="drawnCount" class="text-2xl font-extrabold text-pink-400 font-orbitron">0</p>
+                    </div>
+                    <i class="fa-solid fa-check-double text-pink-400/50 text-2xl"></i>
+                </div>
+
+                <div class="p-3.5 rounded-2xl bg-gray-900/60 border border-gray-800 flex justify-between items-center">
+                    <div>
+                        <p class="text-[10px] text-gray-400 uppercase font-semibold">En Bombo</p>
+                        <p id="remainingCount" class="text-2xl font-extrabold text-emerald-400 font-orbitron">100</p>
+                    </div>
+                    <i class="fa-solid fa-layer-group text-emerald-400/50 text-2xl"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- Center 3D Canvas Area -->
+        <section class="lg:col-span-6 flex flex-col items-center justify-center glass-card p-4 sm:p-6 rounded-3xl relative overflow-hidden min-h-[480px]">
+            <div id="canvas3dContainer" class="w-full rounded-2xl overflow-hidden shadow-inner"></div>
+
+            <p class="text-[11px] text-gray-400 my-2 flex items-center gap-1.5">
+                <i class="fa-solid fa-hand-pointer text-purple-400"></i> Arrastra para rotar en 3D
+            </p>
+
+            <div class="w-full max-w-md mt-2">
+                <button id="spinBtn" onclick="spinBolillero3D()" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 hover:from-amber-400 hover:via-pink-400 hover:to-purple-500 text-white font-black text-xl tracking-wider uppercase shadow-2xl hover:shadow-purple-500/50 transform hover:-translate-y-1 active:translate-y-0.5 transition duration-200 flex items-center justify-center gap-3 border border-amber-300/40">
+                    <i id="spinIcon" class="fa-solid fa-rotate-right text-2xl"></i>
+                    <span>GIRAR BOLILLERO 3D</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Right Panel: 3D Winner Ball & History -->
+        <section class="lg:col-span-3 flex flex-col gap-6">
+            <div class="glass-card p-5 rounded-3xl text-center flex flex-col items-center justify-center relative overflow-hidden glass-glow-gold">
+                <h3 class="text-xs uppercase tracking-widest text-amber-400 font-bold mb-2 font-orbitron">
+                    Última Bolilla Extraída
+                </h3>
                 
-                <!-- Esfera Giratoria -->
-                <div id="cageSphere" class="cage-sphere flex items-center justify-center my-[-2px]">
-                    <div id="cageRing" class="cage-ring"></div>
-                    <!-- Bolillas dinámicas dentro mediante JS -->
-                    <div id="ballsContainer" class="absolute inset-0"></div>
+                <!-- 3D Winner Sphere Container -->
+                <div class="winner-ball-wrapper flex items-center justify-center my-1" id="winnerWrapper">
+                    <div id="winnerCanvasContainer" class="rounded-full shadow-2xl overflow-hidden border-2 border-amber-400/40"></div>
                 </div>
 
-                <!-- Manivela/Soporte Inferior -->
-                <div class="w-48 h-6 bg-gradient-to-r from-slate-800 via-slate-600 to-slate-800 rounded-b-xl shadow-2xl flex justify-center items-center">
-                    <div class="w-12 h-2 bg-slate-900 rounded-full"></div>
-                </div>
-                <div class="w-64 h-3 bg-black/40 blur-md rounded-full mt-2"></div>
+                <p id="winnerText" class="text-xs text-gray-300 mt-2 font-medium h-5">
+                    ¡Presiona Girar para iniciar!
+                </p>
             </div>
 
-            <!-- Botón Principal de Giro -->
-            <button id="spinBtn" class="mt-8 px-10 py-4 rounded-2xl bg-gradient-to-r from-brand-pink via-purple-600 to-brand-cyan text-white font-black text-xl md:text-2xl tracking-wider uppercase shadow-2xl animate-pulse-glow hover:scale-105 active:scale-95 transition-all duration-300 flex items-center space-x-3 cursor-pointer border border-white/20">
-                <i class="fa-solid fa-rotate text-2xl" id="spinIcon"></i>
-                <span>¡Girar Bolillero!</span>
-            </button>
-        </div>
+            <!-- History Container -->
+            <div class="glass-card p-5 rounded-3xl flex flex-col flex-1 max-h-[360px]">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-700/60">
+                    <h3 class="text-sm font-bold text-gray-200 flex items-center gap-2 font-orbitron">
+                        <i class="fa-solid fa-clock-rotate-left text-purple-400"></i> Historial
+                    </h3>
+                    <div class="flex gap-1">
+                        <button onclick="exportHistoryCSV()" title="Exportar CSV" class="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-xs text-emerald-400 transition">
+                            <i class="fa-solid fa-file-csv"></i>
+                        </button>
+                        <button onclick="clearHistory()" title="Limpiar" class="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-xs text-red-400 transition">
+                            <i class="fa-solid fa-eraser"></i>
+                        </button>
+                    </div>
+                </div>
 
-        <!-- LADO DERECHO: Resultado Actual e Historial -->
-        <div class="w-full lg:w-1/2 flex flex-col items-center gap-6">
-            
-            <!-- Target de Resultado -->
-            <div class="w-full glass-card rounded-3xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[220px]">
-                <div class="absolute -right-10 -top-10 w-32 h-32 bg-brand-pink/20 rounded-full blur-2xl"></div>
-                <div class="absolute -left-10 -bottom-10 w-32 h-32 bg-brand-cyan/20 rounded-full blur-2xl"></div>
-
-                <span class="text-xs uppercase tracking-widest font-semibold text-slate-400 mb-2">
-                    Número Extraído
-                </span>
-
-                <!-- Display de Resultado -->
-                <div id="resultDisplay" class="flex items-center justify-center min-h-[120px]">
-                    <p id="placeholderText" class="text-slate-500 font-medium italic text-sm">
-                        Haz clic en "Girar Bolillero" para comenzar el sorteo...
-                    </p>
-                    
-                    <!-- Bolilla Ganadora (Oculta al inicio) -->
-                    <div id="winnerBall" class="hidden extracted-ball w-28 h-28 md:w-32 md:h-32 rounded-full flex items-center justify-center text-4xl md:text-5xl font-black border-4 border-white/40 shadow-2xl">
-                        <span id="winnerNumber">--</span>
+                <div id="historyList" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                    <div class="text-center text-xs text-gray-500 py-8 italic">
+                        Aún no hay bolillas extraídas.
                     </div>
                 </div>
             </div>
-
-            <!-- Historial de Números -->
-            <div class="w-full glass-card rounded-3xl p-5 flex flex-col">
-                <div class="flex justify-between items-center mb-3">
-                    <span class="text-xs uppercase tracking-wider font-bold text-slate-300 flex items-center gap-2">
-                        <i class="fa-solid fa-clock-rotate-left text-brand-pink"></i> Historial de la Sesión
-                    </span>
-                    <button id="clearHistoryBtn" class="text-xs text-slate-400 hover:text-pink-400 transition-colors">
-                        Limpiar
-                    </button>
-                </div>
-
-                <div id="historyContainer" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1 min-h-[50px] items-center">
-                    <span id="emptyHistoryText" class="text-xs text-slate-500 italic">No hay números sorteados aún.</span>
-                </div>
-            </div>
-
-        </div>
-
+        </section>
     </main>
 
-    <!-- Modal de Configuración Secreta -->
-    <div id="configModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md hidden transition-all duration-300 opacity-0">
-        <div class="glass-modal w-full max-w-md rounded-3xl p-6 shadow-2xl relative border border-white/20 transform scale-95 transition-transform duration-300" id="modalCard">
-            
-            <div class="flex justify-between items-center border-b border-white/10 pb-4 mb-4">
-                <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-sliders text-brand-pink text-xl"></i>
-                    <h2 class="text-lg font-bold text-white">Panel de Control / Preconfiguración</h2>
+    <!-- Modal Settings Container -->
+    <div id="configModal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden z-50 flex items-center justify-center p-4">
+        <div class="glass-card max-w-lg w-full p-6 sm:p-8 rounded-3xl border border-purple-500/40 relative shadow-2xl">
+            <button onclick="closeConfigModal()" class="absolute top-5 right-5 text-gray-400 hover:text-white text-xl transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="flex items-center gap-3 mb-6 pb-4 border-b border-gray-700/80">
+                <div class="w-11 h-11 rounded-2xl bg-purple-600/30 text-purple-400 border border-purple-500/30 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-sliders"></i>
                 </div>
-                <button id="closeConfigBtn" class="text-slate-400 hover:text-white text-xl">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+                <div>
+                    <h3 class="text-xl font-bold text-gray-100 font-orbitron">Configuración de Rifa</h3>
+                    <p class="text-xs text-gray-400">Ajusta rangos, tiempos y parámetros</p>
+                </div>
             </div>
 
-            <div class="space-y-4">
-                <!-- Input de Número Preconfigurado -->
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                        Número(s) Forzado(s) Próximo Sorteo:
-                    </label>
-                    <input type="text" id="targetNumberInput" placeholder="Ej: 42 o secuencia 7, 15, 88" 
-                           class="w-full px-4 py-3 rounded-xl bg-slate-900/80 border border-slate-700 text-pink-400 font-bold placeholder-slate-600 focus:outline-none focus:border-brand-pink transition-all">
-                    <p class="text-[11px] text-slate-400 mt-1">
-                        * Ingrese un número fijo o una secuencia separada por comas. Si se deja en blanco, el resultado será 100% aleatorio.
-                    </p>
-                </div>
-
-                <!-- Rango de Bolillas Si es aleatorio -->
-                <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-5">
+                <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Mínimo Rango:</label>
-                        <input type="number" id="minRangeInput" value="1" min="0" 
-                               class="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700 text-white font-medium focus:outline-none focus:border-brand-pink">
+                        <label class="block text-xs font-semibold text-gray-300 mb-1.5">Mínimo</label>
+                        <input type="number" id="minNum" value="1" min="0" max="9999" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2.5 text-center text-lg font-bold text-cyan-400 focus:outline-none focus:border-purple-500 transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Máximo Rango:</label>
-                        <input type="number" id="maxRangeInput" value="99" min="1" 
-                               class="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700 text-white font-medium focus:outline-none focus:border-brand-pink">
+                        <label class="block text-xs font-semibold text-gray-300 mb-1.5">Máximo</label>
+                        <input type="number" id="maxNum" value="100" min="1" max="9999" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2.5 text-center text-lg font-bold text-cyan-400 focus:outline-none focus:border-purple-500 transition">
                     </div>
                 </div>
 
-                <!-- Duración de la animación -->
-                <div>
-                    <div class="flex justify-between text-xs font-semibold text-slate-300 mb-1">
-                        <span>Duración del Giro:</span>
-                        <span id="durationValue" class="text-brand-cyan">4 Segundos</span>
+                <label class="flex items-center justify-between cursor-pointer p-3.5 rounded-xl bg-gray-900/60 hover:bg-gray-900 border border-gray-800 transition">
+                    <span class="text-sm font-medium text-gray-300 flex items-center gap-2.5">
+                        <i class="fa-solid fa-ban text-red-400"></i> Sin Repetición (Números Únicos)
+                    </span>
+                    <input type="checkbox" id="noRepeatToggle" checked class="w-5 h-5 accent-purple-500 rounded cursor-pointer">
+                </label>
+
+                <div class="p-3.5 rounded-xl bg-gray-900/60 border border-gray-800 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-semibold text-gray-300 flex items-center gap-2">
+                            <i class="fa-solid fa-gauge-high text-amber-400"></i> Duración del Mezclado
+                        </span>
+                        <span id="speedValText" class="text-xs font-bold text-amber-400 font-orbitron">3.5s</span>
                     </div>
-                    <input type="range" id="durationSlider" min="2" max="10" value="4" step="1" 
-                           class="w-full accent-brand-pink bg-slate-800 rounded-lg cursor-pointer">
+                    <input type="range" id="spinDuration" min="1.5" max="8" step="0.5" value="3.5" class="w-full accent-amber-500 cursor-pointer">
                 </div>
 
-                <!-- Opciones Extra -->
-                <div class="flex items-center justify-between pt-2">
-                    <span class="text-xs font-semibold text-slate-300">Modo Repetición de Números:</span>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="allowDuplicatesToggle" class="sr-only peer" checked>
-                        <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-pink"></div>
+                <div class="p-3.5 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-2">
+                    <label class="block text-xs font-semibold text-purple-300 flex items-center gap-2">
+                        <i class="fa-solid fa-user-ninja text-amber-400"></i> Próximo Ganador Específico (Truco):
                     </label>
+                    <input type="number" id="predeterminedInput" placeholder="Ej: 42" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm font-bold text-amber-300 focus:outline-none focus:border-amber-400">
+                    <p class="text-[10px] text-gray-400">Fuerza a salir este número en el siguiente giro.</p>
                 </div>
-            </div>
 
-            <!-- Botones del Modal -->
-            <div class="mt-6 flex space-x-3">
-                <button id="saveConfigBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-brand-pink to-brand-purple text-white font-bold text-sm hover:opacity-90 transition-all shadow-lg">
-                    Guardar Configuración
-                </button>
-            </div>
-
-            <div class="mt-3 text-center">
-                <span class="text-[10px] text-slate-500">Atajo teclado: presiona <kbd class="px-1 bg-slate-800 rounded border border-slate-700 text-slate-300">Ctrl + Shift + K</kbd> para abrir/cerrar.</span>
+                <div class="flex items-center gap-3 pt-3 border-t border-gray-800">
+                    <button onclick="saveAndApplySettings()" class="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition shadow-lg flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-check"></i> Guardar y Aplicar
+                    </button>
+                    <button onclick="resetRaffle()" class="px-4 py-3 bg-red-900/40 hover:bg-red-800/60 border border-red-500/30 text-red-300 font-semibold rounded-xl text-xs transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-rotate-left"></i> Reiniciar
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Footer -->
-    <footer class="w-full max-w-5xl text-center py-4 text-xs text-slate-500 flex flex-col md:flex-row justify-between items-center gap-2 border-t border-white/5 mt-6">
-        <p>© 2026 Sorteo Mágico. Diseñado para desplegar en GitHub Pages.</p>
-        <p class="flex items-center gap-1">
-            <span>Desarrollado con</span>
-            <i class="fa-solid fa-heart text-pink-500"></i>
-            <span>HTML5 & Tailwind CSS</span>
-        </p>
-    </footer>
-
     <script>
-        // --- ESTADO DE LA APLICACIÓN ---
-        const state = {
-            isSpinning: false,
-            forcedSequence: [], // Cola de números forzados
-            minRange: 1,
-            maxRange: 99,
-            duration: 4, // segundos
-            allowDuplicates: true,
-            history: [],
-            soundEnabled: true,
-            ballsCount: 18 // Cantidad de bolillas visuales dentro del bolillero
-        };
+        // Global Application State
+        let minNumber = 1;
+        let maxNumber = 100;
+        let drawnNumbers = [];
+        let isSpinning = false;
+        let soundEnabled = true;
+        let predeterminedNumber = null;
 
-        // --- WEB AUDIO API (EFECTOS DE SONIDO SINTETIZADOS) ---
-        class SoundEffects {
-            constructor() {
-                this.ctx = null;
+        // Three.js Cage Scene Variables
+        let scene, camera, renderer, controls;
+        let sphereGroup, cageSphere, standGroup;
+        let balls3D = [];
+        const SPHERE_RADIUS = 3.2;
+        const BALL_RADIUS = 0.32;
+        const GRAVITY = -0.012;
+
+        // Winner 3D Display Scene Variables
+        let winnerScene, winnerCamera, winnerRenderer, winnerBallMesh;
+
+        // Web Audio Context & Audio Generator
+        let audioCtx = null;
+        let lastSoundTime = 0;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
             }
-
-            init() {
-                if (!this.ctx) {
-                    const AudioContext = window.AudioContext || window.webkitAudioContext;
-                    this.ctx = new AudioContext();
-                }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
             }
+        }
 
-            // Sonido de bolilla chocando
-            playClick() {
-                if (!state.soundEnabled) return;
-                this.init();
-                
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                
+        // Real-time sound synthesis for physical collisions
+        function playBallCollisionSound(intensity = 1.0) {
+            if (!soundEnabled || !audioCtx) return;
+
+            const now = audioCtx.currentTime;
+            // Throttle rapidly repeating audio calls slightly to prevent clipping
+            if (now - lastSoundTime < 0.025) return;
+            lastSoundTime = now;
+
+            try {
+                // Short resonant impulse for solid plastic/acrylic contact
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                // Dynamic pitch variation based on impact strength
+                const baseFreq = 450 + Math.random() * 350;
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(300 + Math.random() * 400, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.05);
+                osc.frequency.setValueAtTime(baseFreq, now);
+                osc.frequency.exponentialRampToValueAtTime(120, now + 0.03);
 
-                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                const volume = Math.min(0.18, Math.max(0.01, 0.08 * intensity));
+                gain.gain.setValueAtTime(volume, now);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
 
                 osc.connect(gain);
-                gain.connect(this.ctx.destination);
+                gain.connect(audioCtx.destination);
 
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.05);
-            }
+                osc.start(now);
+                osc.stop(now + 0.035);
+            } catch (e) {}
+        }
 
-            // Fanfarria / Redoble de Victoria
-            playWin() {
-                if (!state.soundEnabled) return;
-                this.init();
-
-                const now = this.ctx.currentTime;
-                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-
-                notes.forEach((freq, index) => {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-
+        function playWinnerFanfare() {
+            if (!soundEnabled || !audioCtx) return;
+            try {
+                const now = audioCtx.currentTime;
+                const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99];
+                notes.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
                     osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(freq, now + index * 0.1);
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
 
-                    gain.gain.setValueAtTime(0.2, now + index * 0.1);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + index * 0.1 + 0.3);
+                    gain.gain.setValueAtTime(0, now + idx * 0.08);
+                    gain.gain.linearRampToValueAtTime(0.2, now + idx * 0.08 + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.35);
 
                     osc.connect(gain);
-                    gain.connect(this.ctx.destination);
+                    gain.connect(audioCtx.destination);
 
-                    osc.start(now + index * 0.1);
-                    osc.stop(now + index * 0.1 + 0.3);
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.35);
                 });
-            }
+            } catch (e) {}
         }
 
-        const sounds = new SoundEffects();
+        const ballPalette = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#d97706'];
 
-        // --- ELEMENTOS DEL DOM ---
-        const spinBtn = document.getElementById('spinBtn');
-        const spinIcon = document.getElementById('spinIcon');
-        const cageSphere = document.getElementById('cageSphere');
-        const cageRing = document.getElementById('cageRing');
-        const ballsContainer = document.getElementById('ballsContainer');
-        const winnerBall = document.getElementById('winnerBall');
-        const winnerNumber = document.getElementById('winnerNumber');
-        const placeholderText = document.getElementById('placeholderText');
-        const historyContainer = document.getElementById('historyContainer');
-        const emptyHistoryText = document.getElementById('emptyHistoryText');
-        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
-        
-        // Modal & Config
-        const configModal = document.getElementById('configModal');
-        const modalCard = document.getElementById('modalCard');
-        const openConfigBtn = document.getElementById('openConfigBtn');
-        const closeConfigBtn = document.getElementById('closeConfigBtn');
-        const saveConfigBtn = document.getElementById('saveConfigBtn');
-        const targetNumberInput = document.getElementById('targetNumberInput');
-        const minRangeInput = document.getElementById('minRangeInput');
-        const maxRangeInput = document.getElementById('maxRangeInput');
-        const durationSlider = document.getElementById('durationSlider');
-        const durationValue = document.getElementById('durationValue');
-        const allowDuplicatesToggle = document.getElementById('allowDuplicatesToggle');
-        const muteBtn = document.getElementById('muteBtn');
-        const muteIcon = document.getElementById('muteIcon');
+        function createNumberBallTexture(number, baseColorHex) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
 
-        // --- INICIALIZACIÓN DE BOLILLAS VISUALES (EFECTO FISICA EN CANASTA) ---
-        let internalBalls = [];
+            // Sphere base color
+            ctx.fillStyle = baseColorHex;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        function initVisualBalls() {
-            ballsContainer.innerHTML = '';
-            internalBalls = [];
-            
-            const colors = [
-                'radial-gradient(circle at 35% 35%, #fff, #f43f5e)',
-                'radial-gradient(circle at 35% 35%, #fff, #3b82f6)',
-                'radial-gradient(circle at 35% 35%, #fff, #10b981)',
-                'radial-gradient(circle at 35% 35%, #fff, #f59e0b)',
-                'radial-gradient(circle at 35% 35%, #fff, #8b5cf6)',
-                'radial-gradient(circle at 35% 35%, #fff, #ec4899)'
-            ];
+            // Double circular badge on opposing sides (0 and 180 deg)
+            const badgePositions = [128, 384];
+            badgePositions.forEach(x => {
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(x, 128, 70, 0, Math.PI * 2);
+                ctx.fill();
 
-            for (let i = 0; i < state.ballsCount; i++) {
-                const ball = document.createElement('div');
-                ball.className = 'bouncing-ball';
-                ball.innerText = Math.floor(Math.random() * 90) + 10;
-                ball.style.background = colors[i % colors.length];
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = '#d1d5db';
+                ctx.stroke();
 
-                // Posición inicial aleatoria dentro del círculo
+                // Print centered badge number
+                ctx.fillStyle = '#111827';
+                ctx.font = '900 70px "Orbitron", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(number.toString(), x, 128);
+            });
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+
+        function init3DScene() {
+            const container = document.getElementById('canvas3dContainer');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+            camera.position.set(0, 1.2, 9.5);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxDistance = 15;
+            controls.minDistance = 5;
+
+            // Ambient & Point Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const pointLight1 = new THREE.PointLight(0x8b5cf6, 1.8, 25);
+            pointLight1.position.set(5, 6, 5);
+            scene.add(pointLight1);
+
+            const pointLight2 = new THREE.PointLight(0x06b6d4, 1.5, 25);
+            pointLight2.position.set(-6, -2, 4);
+            scene.add(pointLight2);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+            dirLight.position.set(0, 10, 8);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            // Acrylic Cage Sphere Group
+            sphereGroup = new THREE.Group();
+            scene.add(sphereGroup);
+
+            // Glass Material
+            const sphereGeo = new THREE.SphereGeometry(SPHERE_RADIUS, 48, 48);
+            const sphereMat = new THREE.MeshPhysicalMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.28,
+                roughness: 0.08,
+                metalness: 0.1,
+                transmission: 0.9,
+                ior: 1.4,
+                reflectivity: 0.8,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.1,
+                side: THREE.DoubleSide
+            });
+            cageSphere = new THREE.Mesh(sphereGeo, sphereMat);
+            sphereGroup.add(cageSphere);
+
+            // Gold Support Rings
+            const ringGeo = new THREE.TorusGeometry(SPHERE_RADIUS + 0.02, 0.05, 16, 100);
+            const goldMat = new THREE.MeshStandardMaterial({
+                color: 0xf59e0b,
+                metalness: 0.9,
+                roughness: 0.2
+            });
+            const ring1 = new THREE.Mesh(ringGeo, goldMat);
+            sphereGroup.add(ring1);
+
+            const ring2 = new THREE.Mesh(ringGeo, goldMat);
+            ring2.rotation.x = Math.PI / 2;
+            sphereGroup.add(ring2);
+
+            // Chrome Base Pedestal
+            standGroup = new THREE.Group();
+            const baseGeo = new THREE.CylinderGeometry(2.8, 3.2, 0.4, 32);
+            const chromeMat = new THREE.MeshStandardMaterial({ color: 0x374151, metalness: 0.8, roughness: 0.2 });
+            const baseMesh = new THREE.Mesh(baseGeo, chromeMat);
+            baseMesh.position.y = -SPHERE_RADIUS - 0.4;
+            standGroup.add(baseMesh);
+
+            const pipeGeo = new THREE.CylinderGeometry(0.42, 0.42, 1.2, 24, 1, true);
+            const pipeMat = new THREE.MeshPhysicalMaterial({
+                color: 0x38bdf8,
+                transparent: true,
+                opacity: 0.35,
+                roughness: 0.1,
+                transmission: 0.85
+            });
+            const pipeMesh = new THREE.Mesh(pipeGeo, pipeMat);
+            pipeMesh.position.set(0, -SPHERE_RADIUS + 0.2, 0);
+            standGroup.add(pipeMesh);
+
+            scene.add(standGroup);
+
+            populate3DBalls();
+            initWinnerBallScene();
+
+            window.addEventListener('resize', onWindowResize);
+            animate3D();
+        }
+
+        function populate3DBalls() {
+            balls3D.forEach(b => sphereGroup.remove(b.mesh));
+            balls3D = [];
+
+            const total = (maxNumber - minNumber + 1);
+            const available = [];
+            for (let i = minNumber; i <= maxNumber; i++) {
+                if (!drawnNumbers.includes(i)) available.push(i);
+            }
+
+            const count = Math.min(42, available.length);
+            const ballGeo = new THREE.SphereGeometry(BALL_RADIUS, 28, 28);
+
+            for (let i = 0; i < count; i++) {
+                const num = available[i % available.length];
+                const colorHex = ballPalette[num % ballPalette.length];
+                const texture = createNumberBallTexture(num, colorHex);
+
+                const mat = new THREE.MeshStandardMaterial({
+                    map: texture,
+                    roughness: 0.25,
+                    metalness: 0.1
+                });
+
+                const mesh = new THREE.Mesh(ballGeo, mat);
+
+                // Initial positions settled near bottom concave area
                 const angle = Math.random() * Math.PI * 2;
-                const radius = Math.random() * 80;
-                const x = 130 + radius * Math.cos(angle) - 16;
-                const y = 130 + radius * Math.sin(angle) - 16;
+                const r = Math.random() * 1.5;
+                mesh.position.x = Math.cos(angle) * r;
+                mesh.position.z = Math.sin(angle) * r;
+                mesh.position.y = -SPHERE_RADIUS + BALL_RADIUS + (Math.random() * 0.8);
+                mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
 
-                ball.style.left = `${x}px`;
-                ball.style.top = `${y}px`;
+                sphereGroup.add(mesh);
 
-                ballsContainer.appendChild(ball);
-
-                internalBalls.push({
-                    element: ball,
-                    x: x,
-                    y: y,
-                    vx: (Math.random() - 0.5) * 4,
-                    vy: (Math.random() - 0.5) * 4
+                balls3D.push({
+                    mesh: mesh,
+                    velocity: new THREE.Vector3(0, 0, 0),
+                    radius: BALL_RADIUS,
+                    number: num
                 });
             }
         }
 
-        // Simulación continua de movimiento suave
-        let animationFrameId = null;
+        function initWinnerBallScene() {
+            const container = document.getElementById('winnerCanvasContainer');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
 
-        function updatePhysics(speedMultiplier = 1) {
-            const centerX = 130 - 16;
-            const centerY = 130 - 16;
-            const maxRadius = 95;
+            winnerScene = new THREE.Scene();
+            winnerCamera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+            winnerCamera.position.set(0, 0, 2.7);
 
-            internalBalls.forEach(ball => {
-                ball.x += ball.vx * speedMultiplier;
-                ball.y += ball.vy * speedMultiplier;
+            winnerRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            winnerRenderer.setSize(width, height);
+            winnerRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(winnerRenderer.domElement);
 
-                // Mantener dentro del límite circular
-                const dx = ball.x - centerX;
-                const dy = ball.y - centerY;
-                const dist = Math.sqrt(dx * dx + dy * dy);
+            const light1 = new THREE.DirectionalLight(0xffffff, 1.2);
+            light1.position.set(2, 3, 4);
+            winnerScene.add(light1);
 
-                if (dist > maxRadius) {
-                    const angle = Math.atan2(dy, dx);
-                    ball.x = centerX + Math.cos(angle) * maxRadius;
-                    ball.y = centerY + Math.sin(angle) * maxRadius;
-                    ball.vx = -ball.vx * 0.8 + (Math.random() - 0.5) * 2;
-                    ball.vy = -ball.vy * 0.8 + (Math.random() - 0.5) * 2;
+            const light2 = new THREE.AmbientLight(0xffffff, 0.8);
+            winnerScene.add(light2);
 
-                    if (speedMultiplier > 2 && Math.random() < 0.2) {
-                        sounds.playClick();
+            updateWinnerBall3D('?');
+        }
+
+        function updateWinnerBall3D(numberDisplay) {
+            if (winnerBallMesh) winnerScene.remove(winnerBallMesh);
+
+            const ballGeo = new THREE.SphereGeometry(0.85, 32, 32);
+            const numVal = parseInt(numberDisplay);
+            const colorHex = isNaN(numVal) ? '#8b5cf6' : ballPalette[numVal % ballPalette.length];
+            const texture = createNumberBallTexture(numberDisplay, colorHex);
+
+            const mat = new THREE.MeshStandardMaterial({
+                map: texture,
+                roughness: 0.15,
+                metalness: 0.1
+            });
+
+            winnerBallMesh = new THREE.Mesh(ballGeo, mat);
+            winnerScene.add(winnerBallMesh);
+        }
+
+        function updateBallPhysics() {
+            const limitR = SPHERE_RADIUS - BALL_RADIUS - 0.05;
+
+            for (let i = 0; i < balls3D.length; i++) {
+                const b = balls3D[i];
+
+                if (isSpinning) {
+                    // Agitation forces when spinning
+                    b.velocity.x += (Math.random() - 0.5) * 0.05;
+                    b.velocity.y += (Math.random() - 0.5) * 0.05;
+                    b.velocity.z += (Math.random() - 0.5) * 0.05;
+                    b.velocity.clampLength(0, 0.28);
+                } else {
+                    // Gravity physics when stopped (pull towards bottom center)
+                    b.velocity.y += GRAVITY;
+                    
+                    // Friction damping
+                    b.velocity.x *= 0.92;
+                    b.velocity.z *= 0.92;
+                    b.velocity.y *= 0.95;
+                }
+
+                b.mesh.position.add(b.velocity);
+
+                // Sphere Cage Wall Collisions
+                const dist = b.mesh.position.length();
+                if (dist > limitR) {
+                    b.mesh.position.setLength(limitR);
+                    const normal = b.mesh.position.clone().normalize();
+                    const impactSpeed = b.velocity.length();
+                    b.velocity.reflect(normal);
+                    b.velocity.multiplyScalar(0.5);
+
+                    if (impactSpeed > 0.03) {
+                        playBallCollisionSound(impactSpeed * 5);
                     }
                 }
 
-                // Aplicar fricción/gravedad tenue
-                ball.vy += 0.1 * speedMultiplier;
+                // Inter-ball Collisions
+                for (let j = i + 1; j < balls3D.length; j++) {
+                    const b2 = balls3D[j];
+                    const delta = b.mesh.position.clone().sub(b2.mesh.position);
+                    const distBetween = delta.length();
+                    const minDist = b.radius + b2.radius;
 
-                ball.element.style.transform = `translate(${ball.x - centerX}px, ${ball.y - centerY}px)`;
-            });
+                    if (distBetween < minDist && distBetween > 0) {
+                        const overlap = 0.5 * (minDist - distBetween);
+                        const dir = delta.normalize();
+                        
+                        b.mesh.position.addScaledVector(dir, overlap);
+                        b2.mesh.position.addScaledVector(dir, -overlap);
 
-            animationFrameId = requestAnimationFrame(() => updatePhysics(state.isSpinning ? 4 : 0.5));
+                        const relVel = b.velocity.clone().sub(b2.velocity);
+                        const relSpeed = relVel.length();
+                        const impulse = dir.multiplyScalar(relVel.dot(dir) * 0.6);
+                        
+                        b.velocity.sub(impulse);
+                        b2.velocity.add(impulse);
+
+                        if (relSpeed > 0.02) {
+                            playBallCollisionSound(relSpeed * 6);
+                        }
+                    }
+                }
+
+                // Rotational movement corresponding to velocity
+                b.mesh.rotation.x += b.velocity.z * 1.5;
+                b.mesh.rotation.z -= b.velocity.x * 1.5;
+            }
         }
 
-        // --- LÓGICA PRINCIPAL DEL SORTEO ---
+        function animate3D() {
+            requestAnimationFrame(animate3D);
 
-        function startSpin() {
-            if (state.isSpinning) return;
+            if (isSpinning) {
+                sphereGroup.rotation.y += 0.09;
+                sphereGroup.rotation.z += 0.02;
+            } else {
+                sphereGroup.rotation.z *= 0.95;
+                sphereGroup.rotation.x *= 0.95;
+                sphereGroup.rotation.y += 0.002;
+            }
 
-            state.isSpinning = true;
+            // 1. CONTINUOUS RIGHT-TO-LEFT ROTATION FOR WINNER BALL DISPLAY (Y-axis)
+            if (winnerBallMesh) {
+                winnerBallMesh.rotation.y -= 0.025; // Negative Y-rotation rotates from right to left
+            }
+
+            updateBallPhysics();
+            controls.update();
+            renderer.render(scene, camera);
+            winnerRenderer.render(winnerScene, winnerCamera);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas3dContainer');
+            if (!container) return;
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
+
+        function spinBolillero3D() {
+            if (isSpinning) return;
+            initAudio();
+
+            const noRepeat = document.getElementById('noRepeatToggle').checked;
+            const availableNumbers = [];
+
+            for (let i = minNumber; i <= maxNumber; i++) {
+                if (!noRepeat || !drawnNumbers.includes(i)) {
+                    availableNumbers.push(i);
+                }
+            }
+
+            if (availableNumbers.length === 0) {
+                alert('¡Todos los números de este rango ya han sido sorteados!');
+                return;
+            }
+
+            isSpinning = true;
+            const spinBtn = document.getElementById('spinBtn');
+            const spinIcon = document.getElementById('spinIcon');
+            const winnerWrapper = document.getElementById('winnerWrapper');
+            const winnerText = document.getElementById('winnerText');
+
             spinBtn.disabled = true;
-            spinBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            spinBtn.classList.add('opacity-50', 'cursor-not-allowed');
             spinIcon.classList.add('animate-spin');
 
-            // Ocultar número anterior si existía
-            winnerBall.classList.add('hidden');
-            winnerBall.classList.remove('animate-reveal');
-            placeholderText.classList.remove('hidden');
-            placeholderText.innerText = "Mezclando bolillas...";
+            winnerWrapper.classList.remove('pop-in');
+            winnerText.innerText = '¡Agitando y mezclando bolillas!';
 
-            // Girar contenedor CSS
-            cageRing.classList.add('animate-spin');
+            const durationSec = parseFloat(document.getElementById('spinDuration').value) || 3.5;
+            const durationMs = durationSec * 1000;
 
-            // Determinar Número Ganador
-            const finalNumber = getNextNumber();
+            let selectedWinner = null;
+            if (predeterminedNumber !== null && availableNumbers.includes(predeterminedNumber)) {
+                selectedWinner = predeterminedNumber;
+                predeterminedNumber = null;
+                document.getElementById('predeterminedInput').value = '';
+            } else {
+                const randIndex = Math.floor(Math.random() * availableNumbers.length);
+                selectedWinner = availableNumbers[randIndex];
+            }
 
-            // Tiempo de simulación
-            const spinDurationMs = state.duration * 1000;
+            const numberFlicker = setInterval(() => {
+                const tempNum = availableNumbers[Math.floor(Math.random() * availableNumbers.length)];
+                updateWinnerBall3D(tempNum);
+            }, 70);
 
             setTimeout(() => {
-                stopSpin(finalNumber);
-            }, spinDurationMs);
+                clearInterval(numberFlicker);
+
+                // Gravity pulls remaining balls to bottom
+                isSpinning = false;
+                spinBtn.disabled = false;
+                spinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                spinIcon.classList.remove('animate-spin');
+
+                updateWinnerBall3D(selectedWinner);
+                winnerWrapper.classList.add('pop-in');
+                winnerText.innerText = `¡Número ${selectedWinner} Extraído!`;
+
+                drawnNumbers.push(selectedWinner);
+                updateStats();
+                addHistoryEntry(selectedWinner);
+                populate3DBalls();
+
+                playWinnerFanfare();
+                triggerConfetti();
+
+            }, durationMs);
         }
 
-        function stopSpin(resultNumber) {
-            state.isSpinning = false;
-            spinBtn.disabled = false;
-            spinBtn.classList.remove('opacity-75', 'cursor-not-allowed');
-            spinIcon.classList.remove('animate-spin');
-            cageRing.classList.remove('animate-spin');
-
-            // Mostrar Resultado
-            placeholderText.classList.add('hidden');
-            winnerNumber.innerText = resultNumber < 10 ? `0${resultNumber}` : resultNumber;
-            winnerBall.classList.remove('hidden');
-            winnerBall.classList.add('animate-reveal');
-
-            // Sonido y Confeti
-            sounds.playWin();
-            triggerConfetti();
-
-            // Registrar en historial
-            addHistoryItem(resultNumber);
-        }
-
-        function getNextNumber() {
-            // 1. Verificar si hay un número preconfigurado en cola
-            if (state.forcedSequence.length > 0) {
-                return state.forcedSequence.shift(); // Extrae el primero de la lista
-            }
-
-            // 2. Si no hay preconfigurado, generar aleatorio según rango
-            let valid = false;
-            let candidate = null;
-            let attempts = 0;
-
-            while (!valid && attempts < 500) {
-                candidate = Math.floor(Math.random() * (state.maxRange - state.minRange + 1)) + state.minRange;
-                if (state.allowDuplicates || !state.history.includes(candidate)) {
-                    valid = true;
-                }
-                attempts++;
-            }
-
-            return candidate || state.minRange;
-        }
-
-        // Confetti visual
         function triggerConfetti() {
             if (typeof confetti === 'function') {
                 confetti({
-                    particleCount: 80,
-                    spread: 70,
-                    origin: { y: 0.6 },
-                    colors: ['#ec4899', '#7c3aed', '#06b6d4', '#f59e0b']
+                    particleCount: 150,
+                    spread: 90,
+                    origin: { y: 0.6 }
                 });
             }
         }
 
-        // Historial
-        function addHistoryItem(number) {
-            state.history.unshift(number);
-            emptyHistoryText.classList.add('hidden');
+        function updateStats() {
+            const total = (maxNumber - minNumber + 1);
+            const drawn = drawnNumbers.length;
+            const remaining = Math.max(0, total - drawn);
+
+            document.getElementById('drawnCount').innerText = drawn;
+            document.getElementById('remainingCount').innerText = remaining;
+            document.getElementById('rangeBadge').innerText = `${minNumber} - ${maxNumber}`;
+        }
+
+        function addHistoryEntry(num) {
+            const historyList = document.getElementById('historyList');
+            if (drawnNumbers.length === 1) historyList.innerHTML = '';
 
             const item = document.createElement('div');
-            item.className = 'w-9 h-9 rounded-full bg-gradient-to-tr from-brand-pink to-brand-purple text-white font-bold flex items-center justify-center text-xs shadow-md transform hover:scale-110 transition-transform cursor-default';
-            item.innerText = number < 10 ? `0${number}` : number;
+            item.className = 'flex items-center justify-between p-2.5 rounded-xl bg-gray-900/80 border border-gray-800 text-sm hover:border-purple-500/40 transition';
+            
+            const badgeClass = `ball-badge-${(num % 6) + 1}`;
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-            historyContainer.insertBefore(item, historyContainer.firstChild);
+            item.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-full ${badgeClass} text-white font-bold text-xs flex items-center justify-center shadow-md font-orbitron">
+                        ${num}
+                    </span>
+                    <span class="font-bold text-gray-200 font-orbitron text-base">#${num}</span>
+                </div>
+                <span class="text-[10px] text-gray-500">${time}</span>
+            `;
+
+            historyList.insertBefore(item, historyList.firstChild);
+        }
+
+        function openConfigModal() {
+            document.getElementById('configModal').classList.remove('hidden');
+        }
+
+        function closeConfigModal() {
+            document.getElementById('configModal').classList.add('hidden');
+        }
+
+        function saveAndApplySettings() {
+            const min = parseInt(document.getElementById('minNum').value) || 1;
+            const max = parseInt(document.getElementById('maxNum').value) || 100;
+            const preVal = parseInt(document.getElementById('predeterminedInput').value);
+
+            if (min >= max) {
+                alert('El número mínimo debe ser inferior al máximo.');
+                return;
+            }
+
+            minNumber = min;
+            maxNumber = max;
+
+            if (!isNaN(preVal)) {
+                predeterminedNumber = preVal;
+            } else {
+                predeterminedNumber = null;
+            }
+
+            resetRaffle();
+            closeConfigModal();
+        }
+
+        function resetRaffle() {
+            drawnNumbers = [];
+            document.getElementById('historyList').innerHTML = `
+                <div class="text-center text-xs text-gray-500 py-8 italic">
+                    Aún no hay bolillas extraídas.
+                </div>
+            `;
+            updateWinnerBall3D('?');
+            document.getElementById('winnerText').innerText = '¡Presiona Girar para iniciar!';
+            updateStats();
+            populate3DBalls();
+        }
+
+        window.addEventListener('click', (e) => {
+            const modal = document.getElementById('configModal');
+            if (e.target === modal) closeConfigModal();
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeConfigModal();
+            if (e.ctrlKey && e.shiftKey && (e.key === 'K' || e.key === 'k')) {
+                e.preventDefault();
+                openConfigModal();
+            }
+        });
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('soundIcon').className = soundEnabled ? 'fa-solid fa-volume-high text-purple-400' : 'fa-solid fa-volume-xmark text-gray-500';
+            document.getElementById('soundText').innerText = soundEnabled ? 'Sonido: ON' : 'Sonido: OFF';
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => console.log(err));
+            } else if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
         }
 
         function clearHistory() {
-            state.history = [];
-            historyContainer.innerHTML = '';
-            historyContainer.appendChild(emptyHistoryText);
-            emptyHistoryText.classList.remove('hidden');
-        }
-
-        // --- GESTIÓN DEL MODAL Y CONFIGURACIÓN ---
-
-        function openModal() {
-            configModal.classList.remove('hidden');
-            setTimeout(() => {
-                configModal.classList.remove('opacity-0');
-                modalCard.classList.remove('scale-95');
-                modalCard.classList.add('scale-100');
-            }, 10);
-        }
-
-        function closeModal() {
-            configModal.classList.add('opacity-0');
-            modalCard.classList.remove('scale-100');
-            modalCard.classList.add('scale-95');
-            setTimeout(() => {
-                configModal.classList.add('hidden');
-            }, 300);
-        }
-
-        function saveConfiguration() {
-            // Procesar input de números preconfigurados
-            const rawVal = targetNumberInput.value.trim();
-            if (rawVal !== '') {
-                const parsed = rawVal.split(',')
-                    .map(n => parseInt(n.trim()))
-                    .filter(n => !isNaN(n));
-                
-                state.forcedSequence = parsed;
-            } else {
-                state.forcedSequence = [];
+            if (confirm('¿Limpiar todo el historial?')) {
+                resetRaffle();
             }
-
-            state.minRange = parseInt(minRangeInput.value) || 1;
-            state.maxRange = parseInt(maxRangeInput.value) || 99;
-            state.duration = parseInt(durationSlider.value) || 4;
-            state.allowDuplicates = allowDuplicatesToggle.checked;
-
-            closeModal();
         }
 
-        // --- EVENT LISTENERS ---
-
-        spinBtn.addEventListener('click', startSpin);
-
-        openConfigBtn.addEventListener('click', openModal);
-        closeConfigBtn.addEventListener('click', closeModal);
-        saveConfigBtn.addEventListener('click', saveConfiguration);
-
-        clearHistoryBtn.addEventListener('click', clearHistory);
-
-        // Click fuera del modal para cerrar
-        configModal.addEventListener('click', (e) => {
-            if (e.target === configModal) closeModal();
-        });
-
-        // Slider de Duración
-        durationSlider.addEventListener('input', (e) => {
-            durationValue.innerText = `${e.target.value} Segundos`;
-        });
-
-        // Atajo Secreto de Teclado (Ctrl + Shift + K)
-        window.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.shiftKey && (e.key === 'K' || e.key === 'k')) {
-                e.preventDefault();
-                if (configModal.classList.contains('hidden')) {
-                    openModal();
-                } else {
-                    closeModal();
-                }
+        function exportHistoryCSV() {
+            if (drawnNumbers.length === 0) {
+                alert('No hay números registrados para exportar.');
+                return;
             }
+            let csv = "data:text/csv;charset=utf-8,Orden,Numero_Ganador\n";
+            drawnNumbers.forEach((num, idx) => {
+                csv += `${idx + 1},${num}\n`;
+            });
+            const link = document.createElement("a");
+            link.href = encodeURI(csv);
+            link.download = `rifa_resultados_${Date.now()}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        document.getElementById('spinDuration').addEventListener('input', (e) => {
+            document.getElementById('speedValText').innerText = `${e.target.value}s`;
         });
 
-        // Toggle Sonido
-        muteBtn.addEventListener('click', () => {
-            state.soundEnabled = !state.soundEnabled;
-            if (state.soundEnabled) {
-                muteIcon.className = 'fa-solid fa-volume-high text-lg';
-                muteBtn.classList.remove('text-red-400');
-            } else {
-                muteIcon.className = 'fa-solid fa-volume-xmark text-lg';
-                muteBtn.classList.add('text-red-400');
-            }
-        });
-
-        // Inicialización al Cargar
         window.onload = function() {
-            initVisualBalls();
-            updatePhysics();
+            init3DScene();
+            updateStats();
         };
-
     </script>
 </body>
 </html>
