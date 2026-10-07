@@ -49,13 +49,13 @@
         }
 
         .glass-glow-gold {
-            box-shadow: 0 0 40px rgba(245, 158, 11, 0.25), inset 0 0 20px rgba(245, 158, 11, 0.1);
+            box-shadow: 0 0 45px rgba(245, 158, 11, 0.3), inset 0 0 20px rgba(245, 158, 11, 0.12);
         }
 
         /* 3D Canvas Containers */
         #canvas3dContainer {
             width: 100%;
-            height: 380px;
+            height: 400px;
             position: relative;
             cursor: grab;
         }
@@ -64,15 +64,16 @@
             cursor: grabbing;
         }
 
+        /* 50% LARGER WINNER DISPLAY CONTAINER (240px x 240px instead of 160px) */
         #winnerCanvasContainer {
-            width: 160px;
-            height: 160px;
+            width: 240px;
+            height: 240px;
             position: relative;
         }
 
         @media (min-width: 640px) {
             #canvas3dContainer {
-                height: 440px;
+                height: 480px;
             }
         }
 
@@ -121,7 +122,7 @@
                 <h1 class="text-2xl sm:text-3xl font-extrabold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-amber-300 font-orbitron">
                     BOLILLERO MÁGICO 3D
                 </h1>
-                <p class="text-xs text-gray-400">Sonido de Chocado Realista & Rotación Continua de Bolilla Ganadora</p>
+                <p class="text-xs text-gray-400">Sonido de Chocado Realista, Bolilla Extraída Grande & Overlay Fullscreen</p>
             </div>
         </div>
 
@@ -180,8 +181,22 @@
         </section>
 
         <!-- Center 3D Canvas Area -->
-        <section class="lg:col-span-6 flex flex-col items-center justify-center glass-card p-4 sm:p-6 rounded-3xl relative overflow-hidden min-h-[480px]">
-            <div id="canvas3dContainer" class="w-full rounded-2xl overflow-hidden shadow-inner"></div>
+        <section id="centerCanvasSection" class="lg:col-span-6 flex flex-col items-center justify-center glass-card p-4 sm:p-6 rounded-3xl relative overflow-hidden min-h-[480px]">
+            
+            <!-- OVERLAY BADGE VISIBLE IN FULLSCREEN MODE & TOP CANCASS VIEW -->
+            <div id="fullscreenStatusBadge" class="absolute top-4 left-4 right-4 z-20 flex items-center justify-between px-4 py-2.5 rounded-2xl bg-slate-900/80 backdrop-blur-md border border-purple-500/30 shadow-xl transition duration-300">
+                <div class="flex items-center gap-2">
+                    <span id="statusPulseDot" class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="fullscreenStatusText" class="text-xs font-extrabold tracking-wider uppercase text-amber-300 font-orbitron">
+                        Estado: Listos para Girar
+                    </span>
+                </div>
+                <span id="fullscreenSubText" class="text-[10px] text-cyan-300 font-bold px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-800">
+                    Bombo: 100 Bolillas
+                </span>
+            </div>
+
+            <div id="canvas3dContainer" class="w-full rounded-2xl overflow-hidden shadow-inner mt-8 sm:mt-6"></div>
 
             <p class="text-[11px] text-gray-400 my-2 flex items-center gap-1.5">
                 <i class="fa-solid fa-hand-pointer text-purple-400"></i> Arrastra para rotar en 3D
@@ -195,19 +210,19 @@
             </div>
         </section>
 
-        <!-- Right Panel: 3D Winner Ball & History -->
+        <!-- Right Panel: 3D Winner Ball (50% Larger) & History -->
         <section class="lg:col-span-3 flex flex-col gap-6">
             <div class="glass-card p-5 rounded-3xl text-center flex flex-col items-center justify-center relative overflow-hidden glass-glow-gold">
-                <h3 class="text-xs uppercase tracking-widest text-amber-400 font-bold mb-2 font-orbitron">
+                <h3 class="text-xs uppercase tracking-widest text-amber-400 font-bold mb-1 font-orbitron">
                     Última Bolilla Extraída
                 </h3>
                 
-                <!-- 3D Winner Sphere Container -->
+                <!-- 50% Larger 3D Winner Sphere Container (240px x 240px) -->
                 <div class="winner-ball-wrapper flex items-center justify-center my-1" id="winnerWrapper">
-                    <div id="winnerCanvasContainer" class="rounded-full shadow-2xl overflow-hidden border-2 border-amber-400/40"></div>
+                    <div id="winnerCanvasContainer" class="rounded-full shadow-2xl overflow-hidden border-2 border-amber-400/50"></div>
                 </div>
 
-                <p id="winnerText" class="text-xs text-gray-300 mt-2 font-medium h-5">
+                <p id="winnerText" class="text-sm font-bold text-amber-300 mt-2 font-orbitron h-6 flex items-center justify-center">
                     ¡Presiona Girar para iniciar!
                 </p>
             </div>
@@ -312,7 +327,7 @@
         let soundEnabled = true;
         let predeterminedNumber = null;
 
-        // Three.js Cage Scene Variables
+        // Three.js Main Cage Variables
         let scene, camera, renderer, controls;
         let sphereGroup, cageSphere, standGroup;
         let balls3D = [];
@@ -342,16 +357,13 @@
             if (!soundEnabled || !audioCtx) return;
 
             const now = audioCtx.currentTime;
-            // Throttle rapidly repeating audio calls slightly to prevent clipping
             if (now - lastSoundTime < 0.025) return;
             lastSoundTime = now;
 
             try {
-                // Short resonant impulse for solid plastic/acrylic contact
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
 
-                // Dynamic pitch variation based on impact strength
                 const baseFreq = 450 + Math.random() * 350;
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(baseFreq, now);
@@ -401,11 +413,9 @@
             canvas.height = 256;
             const ctx = canvas.getContext('2d');
 
-            // Sphere base color
             ctx.fillStyle = baseColorHex;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Double circular badge on opposing sides (0 and 180 deg)
             const badgePositions = [128, 384];
             badgePositions.forEach(x => {
                 ctx.fillStyle = '#ffffff';
@@ -417,7 +427,6 @@
                 ctx.strokeStyle = '#d1d5db';
                 ctx.stroke();
 
-                // Print centered badge number
                 ctx.fillStyle = '#111827';
                 ctx.font = '900 70px "Orbitron", sans-serif';
                 ctx.textAlign = 'center';
@@ -539,7 +548,6 @@
             balls3D.forEach(b => sphereGroup.remove(b.mesh));
             balls3D = [];
 
-            const total = (maxNumber - minNumber + 1);
             const available = [];
             for (let i = minNumber; i <= maxNumber; i++) {
                 if (!drawnNumbers.includes(i)) available.push(i);
@@ -561,7 +569,6 @@
 
                 const mesh = new THREE.Mesh(ballGeo, mat);
 
-                // Initial positions settled near bottom concave area
                 const angle = Math.random() * Math.PI * 2;
                 const r = Math.random() * 1.5;
                 mesh.position.x = Math.cos(angle) * r;
@@ -580,6 +587,7 @@
             }
         }
 
+        /* 50% LARGER WINNER BALL 3D SCENE INITIALIZATION */
         function initWinnerBallScene() {
             const container = document.getElementById('winnerCanvasContainer');
             const width = container.clientWidth;
@@ -607,7 +615,8 @@
         function updateWinnerBall3D(numberDisplay) {
             if (winnerBallMesh) winnerScene.remove(winnerBallMesh);
 
-            const ballGeo = new THREE.SphereGeometry(0.85, 32, 32);
+            // 50% Larger geometry radius (1.0 vs 0.70)
+            const ballGeo = new THREE.SphereGeometry(0.95, 32, 32);
             const numVal = parseInt(numberDisplay);
             const colorHex = isNaN(numVal) ? '#8b5cf6' : ballPalette[numVal % ballPalette.length];
             const texture = createNumberBallTexture(numberDisplay, colorHex);
@@ -629,16 +638,12 @@
                 const b = balls3D[i];
 
                 if (isSpinning) {
-                    // Agitation forces when spinning
                     b.velocity.x += (Math.random() - 0.5) * 0.05;
                     b.velocity.y += (Math.random() - 0.5) * 0.05;
                     b.velocity.z += (Math.random() - 0.5) * 0.05;
                     b.velocity.clampLength(0, 0.28);
                 } else {
-                    // Gravity physics when stopped (pull towards bottom center)
                     b.velocity.y += GRAVITY;
-                    
-                    // Friction damping
                     b.velocity.x *= 0.92;
                     b.velocity.z *= 0.92;
                     b.velocity.y *= 0.95;
@@ -646,7 +651,6 @@
 
                 b.mesh.position.add(b.velocity);
 
-                // Sphere Cage Wall Collisions
                 const dist = b.mesh.position.length();
                 if (dist > limitR) {
                     b.mesh.position.setLength(limitR);
@@ -660,7 +664,6 @@
                     }
                 }
 
-                // Inter-ball Collisions
                 for (let j = i + 1; j < balls3D.length; j++) {
                     const b2 = balls3D[j];
                     const delta = b.mesh.position.clone().sub(b2.mesh.position);
@@ -687,7 +690,6 @@
                     }
                 }
 
-                // Rotational movement corresponding to velocity
                 b.mesh.rotation.x += b.velocity.z * 1.5;
                 b.mesh.rotation.z -= b.velocity.x * 1.5;
             }
@@ -705,9 +707,9 @@
                 sphereGroup.rotation.y += 0.002;
             }
 
-            // 1. CONTINUOUS RIGHT-TO-LEFT ROTATION FOR WINNER BALL DISPLAY (Y-axis)
+            // CONTINUOUS RIGHT-TO-LEFT ROTATION FOR WINNER DISPLAY BALL (Y-axis)
             if (winnerBallMesh) {
-                winnerBallMesh.rotation.y -= 0.025; // Negative Y-rotation rotates from right to left
+                winnerBallMesh.rotation.y -= 0.025;
             }
 
             updateBallPhysics();
@@ -724,6 +726,25 @@
             camera.aspect = w / h;
             camera.updateProjectionMatrix();
             renderer.setSize(w, h);
+        }
+
+        function updateFullscreenOverlayStatus(statusText, isSpinningState = false, winnerNum = null) {
+            const badgeText = document.getElementById('fullscreenStatusText');
+            const pulseDot = document.getElementById('statusPulseDot');
+
+            if (isSpinningState) {
+                badgeText.innerText = "Sorteando Número... ¡Mezclando!";
+                badgeText.className = "text-xs font-extrabold tracking-wider uppercase text-pink-400 font-orbitron animate-pulse";
+                pulseDot.className = "w-3 h-3 rounded-full bg-pink-500 animate-ping";
+            } else if (winnerNum !== null) {
+                badgeText.innerText = `¡Número Ganador Extraído: #${winnerNum}!`;
+                badgeText.className = "text-xs font-extrabold tracking-wider uppercase text-amber-300 font-orbitron";
+                pulseDot.className = "w-3 h-3 rounded-full bg-amber-400";
+            } else {
+                badgeText.innerText = "Estado: Listo para Girar";
+                badgeText.className = "text-xs font-extrabold tracking-wider uppercase text-emerald-400 font-orbitron";
+                pulseDot.className = "w-3 h-3 rounded-full bg-emerald-400 animate-pulse";
+            }
         }
 
         function spinBolillero3D() {
@@ -745,6 +766,8 @@
             }
 
             isSpinning = true;
+            updateFullscreenOverlayStatus("Sorteando...", true);
+
             const spinBtn = document.getElementById('spinBtn');
             const spinIcon = document.getElementById('spinIcon');
             const winnerWrapper = document.getElementById('winnerWrapper');
@@ -755,7 +778,7 @@
             spinIcon.classList.add('animate-spin');
 
             winnerWrapper.classList.remove('pop-in');
-            winnerText.innerText = '¡Agitando y mezclando bolillas!';
+            winnerText.innerText = '¡Agitando y mezclando!';
 
             const durationSec = parseFloat(document.getElementById('spinDuration').value) || 3.5;
             const durationMs = durationSec * 1000;
@@ -778,7 +801,6 @@
             setTimeout(() => {
                 clearInterval(numberFlicker);
 
-                // Gravity pulls remaining balls to bottom
                 isSpinning = false;
                 spinBtn.disabled = false;
                 spinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
@@ -786,12 +808,13 @@
 
                 updateWinnerBall3D(selectedWinner);
                 winnerWrapper.classList.add('pop-in');
-                winnerText.innerText = `¡Número ${selectedWinner} Extraído!`;
+                winnerText.innerText = `¡Número #${selectedWinner} Extraído!`;
 
                 drawnNumbers.push(selectedWinner);
                 updateStats();
                 addHistoryEntry(selectedWinner);
                 populate3DBalls();
+                updateFullscreenOverlayStatus("", false, selectedWinner);
 
                 playWinnerFanfare();
                 triggerConfetti();
@@ -802,8 +825,8 @@
         function triggerConfetti() {
             if (typeof confetti === 'function') {
                 confetti({
-                    particleCount: 150,
-                    spread: 90,
+                    particleCount: 160,
+                    spread: 100,
                     origin: { y: 0.6 }
                 });
             }
@@ -817,6 +840,7 @@
             document.getElementById('drawnCount').innerText = drawn;
             document.getElementById('remainingCount').innerText = remaining;
             document.getElementById('rangeBadge').innerText = `${minNumber} - ${maxNumber}`;
+            document.getElementById('fullscreenSubText').innerText = `Bombo: ${remaining} Bolillas`;
         }
 
         function addHistoryEntry(num) {
@@ -884,6 +908,7 @@
             document.getElementById('winnerText').innerText = '¡Presiona Girar para iniciar!';
             updateStats();
             populate3DBalls();
+            updateFullscreenOverlayStatus("", false, null);
         }
 
         window.addEventListener('click', (e) => {
